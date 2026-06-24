@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>玉门关遗址景区 · 手绘导览图</title>
+<style>
+:root{color-scheme:light}*{margin:0;padding:0;box-sizing:border-box}
+html,body{width:100%;height:100%;overflow:hidden;background:#1a1208;font-family:"PingFang SC","Noto Sans SC","Microsoft YaHei","KaiTi",serif}
+canvas{display:block;cursor:grab}
+canvas:active{cursor:grabbing}
+
+#title-bar{position:fixed;top:0;left:0;right:0;background:linear-gradient(180deg,rgba(20,12,4,0.85) 0%,transparent 100%);padding:12px 20px 28px;z-index:10;pointer-events:none;display:flex;align-items:flex-start;justify-content:space-between}
+#title-bar h1{color:#e8c880;font-size:22px;font-weight:600;letter-spacing:4px;text-shadow:0 2px 6px rgba(0,0,0,0.6)}
+
+#route-bar{position:fixed;top:80px;left:14px;z-index:10;display:flex;flex-direction:column;gap:5px}
+.route-btn{background:rgba(30,18,6,0.75);backdrop-filter:blur(4px);color:#b89860;border:1px solid rgba(180,130,80,0.25);border-radius:5px;padding:5px 12px;font-size:11px;cursor:pointer;letter-spacing:1px;transition:all 0.2s;text-align:center;white-space:nowrap;font-family:inherit}
+.route-btn:hover{background:rgba(60,35,12,0.85);border-color:#c09050;color:#e8c880}
+.route-btn.active{background:rgba(80,45,18,0.85);border-color:#d0a050;color:#e8c880}
+
+#hud{position:fixed;bottom:14px;left:50%;transform:translateX(-50%);display:flex;gap:10px;z-index:10;pointer-events:none;flex-wrap:wrap;justify-content:center}
+.hud-key{background:rgba(20,12,4,0.65);color:#b89860;border:1px solid rgba(160,120,70,0.25);border-radius:6px;padding:5px 10px;font-size:11px;letter-spacing:0.5px;text-align:center;white-space:nowrap}
+.hud-key b{color:#e0b870}
+
+#popup{position:fixed;inset:0;z-index:50;display:flex;align-items:center;justify-content:center;background:rgba(10,6,2,0.55);backdrop-filter:blur(3px);transition:opacity 0.3s}
+#popup.on{opacity:1;pointer-events:auto}#popup:not(.on){opacity:0;pointer-events:none}
+.popup-card{background:linear-gradient(160deg,#3a2815 0%,#20120a 100%);border:1px solid #906840;border-radius:12px;max-width:460px;width:90%;max-height:72vh;overflow-y:auto;padding:24px 26px 20px;box-shadow:0 10px 40px rgba(0,0,0,0.7);color:#d8c090;position:relative}
+.popup-card h2{font-size:20px;color:#e8c080;margin-bottom:6px;letter-spacing:2px}
+.popup-card .subtitle{font-size:11px;color:#a08058;margin-bottom:12px;padding-bottom:10px;border-bottom:1px solid rgba(160,120,70,0.25)}
+.popup-card p{font-size:14px;line-height:1.8;color:#c8b080;white-space:pre-line}
+.popup-card button{display:block;margin:14px auto 0;background:linear-gradient(180deg,#906838 0%,#604020 100%);color:#e8c880;border:1px solid #a07840;border-radius:7px;padding:8px 32px;font-size:14px;cursor:pointer;letter-spacing:1px;font-family:inherit}
+.popup-card button:hover{background:linear-gradient(180deg,#a07840 0%,#704828 100%)}
+
+#welcome{position:fixed;inset:0;z-index:100;display:flex;align-items:center;justify-content:center;background:rgba(10,6,2,0.75);backdrop-filter:blur(5px);transition:opacity 0.4s}
+#welcome.off{opacity:0;pointer-events:none}
+.welcome-card{background:linear-gradient(160deg,#3a2815 0%,#1a0e06 100%);border:1px solid #906840;border-radius:14px;max-width:480px;width:90%;padding:28px 26px 24px;box-shadow:0 14px 48px rgba(0,0,0,0.75);color:#d8c090;text-align:center;max-height:88vh;overflow-y:auto}
+.welcome-card h2{font-size:26px;color:#e8c080;letter-spacing:4px;margin-bottom:2px}
+.welcome-card .sub{font-size:11px;color:#a08058;margin-bottom:14px;letter-spacing:1px}
+.welcome-card .route-info{font-size:12px;line-height:1.8;color:#c0a070;text-align:left;margin:0 auto 8px;max-width:380px}
+.welcome-card .route-info b{color:#e8c080}
+.welcome-card .ops{font-size:12px;line-height:2;color:#b89860;text-align:left;margin:0 auto;max-width:300px}
+.welcome-card .btn-row{display:flex;gap:10px;justify-content:center;margin-top:16px;flex-wrap:wrap}
+.welcome-card button{background:linear-gradient(180deg,#906838 0%,#604020 100%);color:#e8c880;border:1px solid #a07840;border-radius:7px;padding:9px 26px;font-size:14px;cursor:pointer;letter-spacing:1px;font-family:inherit}
+.welcome-card button:hover{background:linear-gradient(180deg,#a07840 0%,#704828 100%)}
+
+/* 缩放比例尺 */
+#scale{position:fixed;bottom:50px;right:16px;z-index:10;color:#b89860;font-size:10px;background:rgba(10,6,2,0.6);padding:4px 8px;border-radius:4px;pointer-events:none}
+</style>
+</head>
+<body>
+
+<div id="title-bar"><div><h1>玉门关遗址景区</h1></div></div>
+
+<div id="route-bar">
+  <button class="route-btn" data-route="all" style="color:#e8c880">📍 全部景点</button>
+  <button class="route-btn" data-route="quick" style="color:#80d8b0">🟢 快速线</button>
+  <button class="route-btn" data-route="culture" style="color:#f09060">🟠 文化线</button>
+  <button class="route-btn" data-route="full" style="color:#e0c060">🟡 全景线</button>
+</div>
+
+<div id="hud">
+  <div class="hud-key"><b>WASD</b> 行走</div>
+  <div class="hud-key"><b>🖱️ 拖拽</b> 平移</div>
+  <div class="hud-key"><b>滚轮</b> 缩放</div>
+  <div class="hud-key"><b>走近景点</b> 弹出介绍</div>
+  <div class="hud-key"><b>点击地图</b> 查看坐标</div>
+</div>
+
+<div id="scale">缩放: 100%</div>
+<div id="coords" style="position:fixed;top:55px;right:16px;z-index:10;color:#ffd088;font-size:11px;background:rgba(10,6,2,0.7);padding:4px 10px;border-radius:4px;pointer-events:none;display:none">坐标: --</div>
+
+<div id="welcome">
+  <div class="welcome-card">
+    <h2>玉门关遗址景区</h2>
+    <div class="sub">国风手绘导览图 · 沉浸式边塞探索</div>
+    <div class="route-info">
+      <b>🟢 快速游览线 (约1.5h)</b><br>出口→玉门关→烽燧→观景台→出口<br><br>
+      <b>🟠 文化体验线 (约3h)</b><br>出口→玉门关→汉长城→小方盘城→西域都会→丝路驿站→出口<br><br>
+      <b>🟡 全景深度线 (约5h)</b><br>出口→玉门关→汉长城→烽燧→小方盘城→西域都会→丝路驿站→观景台→出口
+    </div>
+    <div class="ops">
+      ⌨️ WASD 行走 &nbsp; 🖱️ 拖拽平移 &nbsp; 🔍 滚轮缩放<br>
+      🏯 走近景点 弹出历史介绍
+    </div>
+    <div class="btn-row">
+      <button id="btn-start">开始漫游</button>
+    </div>
+  </div>
+</div>
+
+<div id="popup">
+  <div class="popup-card">
+    <h2 id="popup-title"></h2>
+    <div class="subtitle" id="popup-sub"></div>
+    <p id="popup-body"></p>
+    <button id="popup-close">继续探索</button>
+  </div>
+</div>
+
+<canvas id="map"></canvas>
+
+<script>
+/* ══════════════════════════════════════════════════════════════
+ * 玉门关遗址 · 手绘地图交互系统
+ * 使用用户上传的玉门关地图.png 作为底图
+ * ══════════════════════════════════════════════════════════════ */
+
+const canvas = document.getElementById('map');
+const ctx = canvas.getContext('2d');
+let W, H;
+function resize() { W = canvas.width = window.innerWidth; H = canvas.height = window.innerHeight; }
+resize(); window.addEventListener('resize', resize);
+
+// ── 加载地图底图 ──
+const mapImage = new Image();
+mapImage.src = 'map.png';
+
+// 地图原始尺寸
+const MAP_W = mapImage.naturalWidth || 1536;
+const MAP_H = mapImage.naturalHeight || 1024;
+
+mapImage.onload = () => {
+  // 地图加载完成后更新实际尺寸
+  console.log('地图加载完成:', mapImage.naturalWidth, 'x', mapImage.naturalHeight);
+};
+
+// ── 视口 ──
+let viewX = 1536 / 2, viewY = 1024 / 2;
+let zoom = 1;
+const MIN_ZOOM = 0.4, MAX_ZOOM = 2.5;
+
+// ── 9个景点坐标（1536x1024 地图上的像素位置） ──
+// 默认按比例估算，用户可自行调整
+const POIS = [
+  { id:'①', name:'玉门关遗址',   sub:'世界文化遗产 · 汉代丝路北道要冲',   x:712,  y:77,  r:60, route:['quick','culture','full'],
+    body:'玉门关始建于汉武帝元鼎年间（约公元前111年），俗称"小方盘城"，是汉代丝绸之路北道最重要的关隘。\n\n"玉门"之名，源自西域和田美玉经此输入中原。关城黄土夯筑，平面方形，南北长26.4米，东西宽24.5米，残高约10米。\n\n唐代王之涣"羌笛何须怨杨柳，春风不度玉门关"使其名垂千古。2014年列入世界文化遗产名录。', cd:0 },
+  { id:'②', name:'汉长城遗址',   sub:'汉代塞防体系 · 土筑长城遗迹',        x:436,  y:228,  r:55, route:['culture','full'],
+    body:'玉门关汉长城是汉代"塞"防体系的重要组成部分，以黄土、芦苇、红柳枝分层夯筑而成。\n\n不同于明代砖石长城，汉长城因地制宜，就地取材。现存墙体残高约2-3米，在戈壁滩上形成一道独特的土黄色防线。\n\n它与烽燧体系共同构成汉代河西走廊完整的军事防御网络。', cd:0 },
+  { id:'③', name:'烽燧遗址',     sub:'汉代军情传递系统 · 昼烽夜燧',        x:1085, y:242,  r:50, route:['quick','full'],
+    body:'玉门关沿线分布数十座汉代烽火台。遇有敌情，白昼燃烟称"烽"，夜晚点火称"燧"，逐台相传，边境军情可迅速传至内地。\n\n每座烽燧相距约2.5-5公里，由戍卒驻守。他们在此留下了数以万计的汉简文书，是研究汉代边疆社会的一手史料。', cd:0 },
+  { id:'④', name:'观景台',       sub:'俯瞰疏勒河古道 · 戈壁落日全景',     x:1322, y:357,  r:45, route:['quick','full'],
+    body:'观景台位于景区东侧高地，临疏勒河古道而建。登台远眺，可一览玉门关全景——北望汉长城残垣，西看关城落日，南眺戈壁大漠。\n\n在晴朗的傍晚，站在这里可以看到"长河落日圆"的壮丽景象，感受两千年前戍边将士面对这片苍凉大地时的心境。', cd:0 },
+  { id:'⑤', name:'小方盘城遗址', sub:'汉代屯戍古城 · 方盘之名由来',        x:910,  y:519,  r:45, route:['culture','full'],
+    body:'小方盘城是玉门关周边一座汉代屯戍城堡遗址，因城垣方形、状如小盘而得名。城内曾出土大量汉简、陶器、铁器等文物。\n\n这类小型戍城在河西走廊分布广泛，通常驻军数十至百余人，兼具防御、仓储和驿站功能，是支撑丝路运转的基础节点。', cd:0 },
+  { id:'⑥', name:'西域都会遗址', sub:'丝路贸易集散地 · 多民族交融古城',    x:743,  y:597,  r:65, route:['culture','full'],
+    body:'这里是汉代西域诸国商队进入中原前的最后一处大型集散地。遗址面积广阔，考古发掘显示曾有多民族在此聚居、交易。\n\n出土文物包括汉五铢钱、佉卢文木牍、波斯风格金银器等，见证了丝绸之路作为东西文明交汇通道的繁荣。城市约在魏晋南北朝时期逐渐废弃。', cd:0 },
+  { id:'⑦', name:'丝路驿站体验区',sub:'驼铃声声 · 商旅休憩之所',           x:367,  y:567,  r:52, route:['culture','full'],
+    body:'驿站是丝绸之路上不可或缺的设施，为往来商队提供食宿、补给和驼马更换服务。汉代在河西走廊设立了完善的驿站系统，驿卒"驰命走驿，不绝于时月"。\n\n此体验区复原了汉代驿站与西域商旅帐篷的混合风貌，让游客感受当年商队在此休整、交易的热闹场景。', cd:0 },
+  { id:'⑧', name:'文创商店',     sub:'带走一份丝路记忆',                 x:218,  y:656,  r:40, route:['all'],
+    body:'文创商店提供以玉门关和丝绸之路为主题的文化创意产品——复刻汉简、丝路地图丝巾、关城模型、敦煌壁画明信片等。\n\n每一件产品都融入了汉代边塞的历史文化元素，让游客将这段穿越两千年的丝路记忆带回家。', cd:0 },
+  { id:'⑨', name:'出口服务区',   sub:'游客中心 · 停车场 · 行程终点',     x:211,  y:496,  r:50, route:['quick','culture','full'],
+    body:'这里是玉门关遗址景区的出口服务区，设有游客服务中心、停车场、餐饮和休息设施。入口处立有"玉门关"石碑，是游客合影留念的热门地点。\n\n感谢您的游览！"但愿生入玉门关"——怀着对这片古老土地的敬意，我们期待您的再次到访。', cd:0 },
+];
+
+// ── 路线 ──
+const ROUTES = {
+  all:    ['①','②','③','④','⑤','⑥','⑦','⑧','⑨'],
+  quick:  ['⑨','①','③','④','⑨'],
+  culture:['⑨','①','②','⑤','⑥','⑦','⑨'],
+  full:   ['⑨','①','②','③','⑤','⑥','⑦','④','⑨'],
+};
+const ROUTE_COLORS = { quick:'#80d8b0', culture:'#f09060', full:'#e0c060' };
+let activeRoute = 'all';
+
+// ── 玩家 ──
+let playerX = POIS[0].x, playerY = POIS[0].y;
+viewX = playerX; viewY = playerY;
+const PLAYER_SPEED = 120;
+
+// ── 操控 ──
+const keys = {};
+let dragging = false, dragStartX = 0, dragStartY = 0, dragViewX = 0, dragViewY = 0;
+
+/* ══════════════════════════════════════════════════════════════
+ * 绘制
+ * ══════════════════════════════════════════════════════════════ */
+
+function draw() {
+  ctx.clearRect(0, 0, W, H);
+
+  // 背景色
+  ctx.fillStyle = '#1a1208';
+  ctx.fillRect(0, 0, W, H);
+
+  ctx.save();
+  ctx.translate(W / 2, H / 2);
+  ctx.scale(zoom, zoom);
+  ctx.translate(-viewX, -viewY);
+
+  // ── 底图 ──
+  if (mapImage.complete && mapImage.naturalWidth > 0) {
+    ctx.drawImage(mapImage, 0, 0, mapImage.naturalWidth, mapImage.naturalHeight);
+  } else {
+    // 地图未加载时显示占位
+    ctx.fillStyle = '#f2e4c8';
+    ctx.fillRect(0, 0, 1536, 1024);
+    ctx.fillStyle = '#8a6a40'; ctx.font = '28px KaiTi,serif'; ctx.textAlign = 'center';
+    ctx.fillText('地图加载中...', 768, 512);
+  }
+
+  // ── 路线 ──
+  if (activeRoute !== 'all') {
+    const ids = ROUTES[activeRoute];
+    const pts = ids.map(id => POIS.find(p => p.id === id)).filter(Boolean);
+    if (pts.length >= 2) {
+      ctx.beginPath();
+      ctx.moveTo(pts[0].x, pts[0].y);
+      for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
+      ctx.strokeStyle = ROUTE_COLORS[activeRoute]; ctx.lineWidth = 5;
+      ctx.globalAlpha = 0.7; ctx.stroke();
+      ctx.globalAlpha = 1;
+    }
+  }
+
+  // ── 景点标记 ──
+  for (const p of POIS) {
+    const inRoute = new Set(ROUTES[activeRoute]).has(p.id);
+    const pulse = Math.sin(Date.now() * 0.003) * 0.2 + 0.8;
+
+    // 底圈
+    ctx.fillStyle = inRoute ? `rgba(232,168,64,0.25)` : `rgba(150,120,80,0.15)`;
+    ctx.beginPath(); ctx.arc(p.x, p.y, p.r * 0.6, 0, Math.PI * 2); ctx.fill();
+
+    // 外圈
+    ctx.strokeStyle = inRoute ? '#e8a840' : '#8a7050';
+    ctx.lineWidth = inRoute ? 2.5 : 1.5;
+    ctx.globalAlpha = inRoute ? pulse : 0.6;
+    ctx.beginPath(); ctx.arc(p.x, p.y, p.r * 0.55, 0, Math.PI * 2); ctx.stroke();
+    ctx.globalAlpha = 1;
+
+    // 编号气泡
+    ctx.fillStyle = inRoute ? 'rgba(120,60,30,0.9)' : 'rgba(80,50,30,0.7)';
+    ctx.beginPath(); ctx.arc(p.x, p.y, 14, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = '#e8c880'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(p.x, p.y, 14, 0, Math.PI * 2); ctx.stroke();
+
+    // 编号文字
+    ctx.fillStyle = '#ffe8c0'; ctx.font = 'bold 15px "PingFang SC","Microsoft YaHei",sans-serif';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(p.id, p.x, p.y);
+  }
+
+  // ── 玩家 ──
+  const pPulse = Math.sin(Date.now() * 0.005) * 0.3 + 0.7;
+  ctx.fillStyle = `rgba(255,200,60,${0.25 * pPulse})`;
+  ctx.beginPath(); ctx.arc(playerX, playerY, 22, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = '#ffcc44'; ctx.lineWidth = 3;
+  ctx.beginPath(); ctx.arc(playerX, playerY, 14, 0, Math.PI * 2); ctx.stroke();
+  ctx.fillStyle = '#d04020'; ctx.beginPath(); ctx.arc(playerX, playerY, 8, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(playerX, playerY, 4, 0, Math.PI * 2); ctx.fill();
+  // 方向指示
+  const dirAngle = -Math.PI / 2;
+  ctx.fillStyle = '#fff'; ctx.beginPath();
+  ctx.moveTo(playerX + Math.cos(dirAngle) * 12, playerY + Math.sin(dirAngle) * 12);
+  ctx.lineTo(playerX + Math.cos(dirAngle + 2.2) * 6, playerY + Math.sin(dirAngle + 2.2) * 6);
+  ctx.lineTo(playerX + Math.cos(dirAngle - 2.2) * 6, playerY + Math.sin(dirAngle - 2.2) * 6);
+  ctx.closePath(); ctx.fill();
+
+  ctx.restore();
+
+  // 缩放比例
+  document.getElementById('scale').textContent = '缩放: ' + Math.round(zoom * 100) + '%';
+}
+
+/* ══════════════════════════════════════════════════════════════
+ * 交互
+ * ══════════════════════════════════════════════════════════════ */
+function screenToWorld(sx, sy) {
+  return { x: (sx - W / 2) / zoom + viewX, y: (sy - H / 2) / zoom + viewY };
+}
+
+window.addEventListener('keydown', e => { keys[e.key.toLowerCase()] = true; });
+window.addEventListener('keyup', e => { keys[e.key.toLowerCase()] = false; });
+
+let clickStartX = 0, clickStartY = 0;
+canvas.addEventListener('mousedown', e => {
+  dragging = true;
+  clickStartX = e.clientX; clickStartY = e.clientY;
+  dragStartX = e.clientX; dragStartY = e.clientY;
+  dragViewX = viewX; dragViewY = viewY;
+  canvas.style.cursor = 'grabbing';
+});
+window.addEventListener('mousemove', e => {
+  if (!dragging) return;
+  viewX = dragViewX - (e.clientX - dragStartX) / zoom;
+  viewY = dragViewY - (e.clientY - dragStartY) / zoom;
+  clampView();
+});
+window.addEventListener('mouseup', e => {
+  const dx = e.clientX - clickStartX, dy = e.clientY - clickStartY;
+  // 没有拖拽 = 点击，打印世界坐标
+  if (Math.abs(dx) < 3 && Math.abs(dy) < 3) {
+    const w = screenToWorld(e.clientX, e.clientY);
+    const s = `x=${Math.round(w.x)}, y=${Math.round(w.y)}`;
+    console.log('📍 地图坐标:', s);
+    const cd = document.getElementById('coords');
+    cd.textContent = '📍 ' + s; cd.style.display = 'block';
+    setTimeout(() => { cd.style.display = 'none'; }, 3000);
+  }
+  dragging = false; canvas.style.cursor = 'grab';
+});
+
+canvas.addEventListener('wheel', e => {
+  e.preventDefault();
+  const before = screenToWorld(e.clientX, e.clientY);
+  zoom *= e.deltaY > 0 ? 0.9 : 1.1;
+  zoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, zoom));
+  const after = screenToWorld(e.clientX, e.clientY);
+  viewX += before.x - after.x; viewY += before.y - after.y;
+  clampView();
+}, { passive: false });
+
+// 触摸
+canvas.addEventListener('touchstart', e => {
+  if (e.touches.length === 1) {
+    dragging = true;
+    dragStartX = e.touches[0].clientX; dragStartY = e.touches[0].clientY;
+    dragViewX = viewX; dragViewY = viewY;
+  }
+});
+canvas.addEventListener('touchmove', e => {
+  if (!dragging || e.touches.length !== 1) return;
+  viewX = dragViewX - (e.touches[0].clientX - dragStartX) / zoom;
+  viewY = dragViewY - (e.touches[0].clientY - dragStartY) / zoom;
+  clampView();
+});
+canvas.addEventListener('touchend', () => { dragging = false; });
+
+function clampView() {
+  const M_W = mapImage.naturalWidth || 1536, M_H = mapImage.naturalHeight || 1024;
+  viewX = Math.max(W / 2 / zoom, Math.min(M_W - W / 2 / zoom, viewX));
+  viewY = Math.max(H / 2 / zoom, Math.min(M_H - H / 2 / zoom, viewY));
+}
+
+// ── 弹窗 ──
+let popupShown = false;
+const popupEl = document.getElementById('popup');
+document.getElementById('popup-close').addEventListener('click', () => { popupEl.classList.remove('on'); popupShown = false; });
+popupEl.addEventListener('click', e => { if (e.target === popupEl) { popupEl.classList.remove('on'); popupShown = false; } });
+
+const CD = 15;
+function checkPOIs() {
+  if (popupShown) return;
+  const routeSet = new Set(ROUTES[activeRoute]);
+  for (const p of POIS) {
+    if (p.cd > 0 || !routeSet.has(p.id)) continue;
+    const dx = playerX - p.x, dy = playerY - p.y;
+    if (Math.sqrt(dx * dx + dy * dy) < p.r * 0.5 + 20) {
+      popupShown = true;
+      document.getElementById('popup-title').textContent = p.id + ' ' + p.name;
+      document.getElementById('popup-sub').textContent = p.sub;
+      document.getElementById('popup-body').textContent = p.body;
+      popupEl.classList.add('on');
+      p.cd = CD; return;
+    }
+  }
+}
+function tickPOIs(dt) { for (const p of POIS) if (p.cd > 0) p.cd = Math.max(0, p.cd - dt); }
+
+// ── 路线按钮 ──
+document.querySelectorAll('.route-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.route-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active'); activeRoute = btn.dataset.route;
+  });
+});
+document.querySelector('[data-route="all"]').classList.add('active');
+
+// ── 欢迎 ──
+const welcomeEl = document.getElementById('welcome');
+document.getElementById('btn-start').addEventListener('click', () => { welcomeEl.classList.add('off'); });
+
+/* ══════════════════════════════════════════════════════════════
+ * 主循环
+ * ══════════════════════════════════════════════════════════════ */
+let lastTime = performance.now();
+function loop(now) {
+  requestAnimationFrame(loop);
+  const dt = Math.min((now - lastTime) / 1000, 0.15);
+  lastTime = now;
+
+  if (welcomeEl.classList.contains('off')) {
+    if (!dragging && !popupShown) {
+      let dx = 0, dy = 0;
+      if (keys['w'] || keys['arrowup']) dy -= 1;
+      if (keys['s'] || keys['arrowdown']) dy += 1;
+      if (keys['a'] || keys['arrowleft']) dx -= 1;
+      if (keys['d'] || keys['arrowright']) dx += 1;
+      if (dx !== 0 || dy !== 0) {
+        const len = Math.sqrt(dx * dx + dy * dy); dx /= len; dy /= len;
+        playerX += dx * PLAYER_SPEED * dt;
+        playerY += dy * PLAYER_SPEED * dt;
+        const M_W = mapImage.naturalWidth || 1536, M_H = mapImage.naturalHeight || 1024;
+        playerX = Math.max(20, Math.min(M_W - 20, playerX));
+        playerY = Math.max(20, Math.min(M_H - 20, playerY));
+        viewX = playerX; viewY = playerY; // 镜头锁死玩家，不漂移
+        clampView();
+      }
+    }
+    checkPOIs();
+    tickPOIs(dt);
+  } else {
+    lastTime = now; // 暂停时重置delta
+  }
+  draw();
+}
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
